@@ -1,0 +1,33 @@
+pg_custom_metrics:
+  # Métriques générales
+  - query: "SELECT 1 AS pg_up"
+    usage: "CUSTOM"
+
+  - query: "SELECT pg_scrape_duration_seconds FROM pg_stat_bgwriter"
+    usage: "CUSTOM"
+
+  # Métriques sur les bases de données
+  - query: "SELECT pg_database_size(datid) AS size_bytes FROM pg_stat_database"
+    usage: "CUSTOM"
+
+  - query: "SELECT numbackends FROM pg_stat_database WHERE datname = current_database()"
+    usage: "CUSTOM"
+
+  # Métriques sur les tables
+  - query: "SELECT pg_total_relation_size(tablename) AS size_bytes FROM pg_tables WHERE schemaname = 'public'"
+    usage: "CUSTOM"
+
+  - query: "SELECT n_live_tup FROM pg_stat_all_tables WHERE schemaname = 'public' AND relname = 'your_table'"
+    usage: "CUSTOM"
+
+  # Métriques sur les index
+  - query: "SELECT pg_total_relation_size(indexname) AS size_bytes FROM pg_indexes WHERE schemaname = 'public'"
+    usage: "CUSTOM"
+
+  - query: "SELECT idx_scan FROM pg_stat_all_indexes WHERE schemaname = 'public' AND indexrelname = 'your_index'"
+    usage: "CUSTOM"
+
+  # Métriques sur les connexions
+  - query: "SELECT count(*) FROM pg_stat_activity"
+    usage: "CUSTOM"
+

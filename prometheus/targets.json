@@ -1,0 +1,29 @@
+*
+
+{
+  "groups": [
+    {
+      "name": "prometheus",
+      "targets": [
+        "prometheus:9090"
+      ]
+    },
+    {
+      "name": "traefik",
+      "targets": [
+        "traefik:8082"
+      ]
+    },
+    {
+      "name": "postgres_exporter",
+      "targets": [
+        "localhost:9187"
+      ],
+      "labels": {
+        "job": "docker"
+      }
+    }
+  ]
+}
+
+

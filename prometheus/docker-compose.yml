@@ -1,0 +1,114 @@
+version: '3.7'
+
+volumes:
+  prometheus_data: {}
+  grafana_data: {}
+
+networks:
+  prometheus2:
+    external: true 
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.43.0
+    container_name: prometheus-2
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+      - ./node-exporter-rules.yml:/etc/prometheus/node-exporter-rules.yml
+      - ./targets.json:/etc/prometheus/file_sd_targets/targets.json
+      - ./docker_targets.json:/etc/prometheus/file_sd_targets/docker_targets.json
+      - /var/run/docker.sock:/var/run/docker.sock
+    hostname: prometheus-2
+    ports:
+      - 9090:9090
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--enable-feature=remote-write-receiver'
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.prometheus-secure.entrypoints=web
+      - traefik.http.routers.prometheus-secure.rule=Host(`prometheus.localtest.me`)
+      - traefik.http.routers.prometheus-secure.service=prometheus
+      - traefik.http.services.prometheus.loadbalancer.server.port=9090
+    environment:
+      - "JOBS=traefik:8082 node-exporter:9100 postgres:5432 postgres_exporter:9187 prometheus-agent:9190 dockerd-exporter:9323"
+    restart: unless-stopped
+    networks:
+      - prometheus2
+
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: mabdd 
+      POSTGRES_USER: quentin
+      POSTGRES_PASSWORD: secret
+    networks:
+      - prometheus2
+            
+  grafana:
+    image: grafana/grafana:9.5.1
+    container_name: grafana
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/:/etc/grafana/provisioning/
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.grafana-secure.entrypoints=web
+      - traefik.http.routers.grafana-secure.rule=Host(`grafana.localtest.me`)
+      - traefik.http.routers.grafana-secure.service=grafana
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+    env_file:
+      - ./grafana/config.monitoring
+    restart: unless-stopped
+    networks:
+      - prometheus2
+
+  alertmanager:
+    image: prom/alertmanager:v0.25.0
+    container_name: alertmanager
+    volumes:
+      - ./alertmanager/:/etc/alertmanager/
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.alertmanager-secure.entrypoints=web
+      - traefik.http.routers.alertmanager-secure.rule=Host(`alertmanager.localtest.me`)
+      - traefik.http.routers.alertmanager-secure.service=alertmanager
+      - traefik.http.services.alertmanager.loadbalancer.server.port=9093
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    networks:
+      - prometheus2
+
+  portainer:
+    image: "portainer/portainer-ce:latest"
+    container_name: portainer
+    security_opt:
+      - "no-new-privileges:true"
+    networks:
+      - prometheus2 
+    ports:
+      - "9000:9000"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./portainer-data:/data"
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.portainer-secure.entrypoints=web"
+      - "traefik.http.routers.portainer-secure.rule=Host(`portainer.localtest.me`)"
+      - "traefik.http.routers.portainer-secure.service=portainer"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"

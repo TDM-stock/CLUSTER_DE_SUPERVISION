@@ -1,0 +1,343 @@
+##################################
+# Alertes Supervision Prometheus #
+##################################
+
+groups:
+- name: Prometheus_alerts
+  rules:
+  - alert: PrometheusJobMissing
+    expr: absent(up{job="prometheus"})
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Job Prometheus manquant (instance {{ $labels.instance }})
+      description: "Un job Prometheus est indisponible\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTargetMissing
+    expr: up == 0
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Une source Prometheus est indisponible (instance {{ $labels.instance }})
+      description: "Une source Prometheus est indisponible. Un collecteur a peut-être planté\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusAllTargetsMissing
+    expr: count by (job) (up) == 0
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Toutes les sources Prometheus sont indisponibles (instance {{ $labels.instance }})
+      description: "Toutes les sources Prometheus sont tombées\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusConfigurationReloadFailure
+    expr: prometheus_config_last_reload_successful != 1
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Le rechargement de la configuration de Prometheus a échoué (instance {{ $labels.instance }})
+      description: "Echec du rechargement de la configuration de Prometheus\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTooManyRestarts
+    expr: changes(process_start_time_seconds{job=~"prometheus|pushgateway|alertmanager"}[15m]) > 2
+    for: 3m
+    labels:
+      severity: P2
+    annotations:
+      summary: Trop de tentatives de redémarrage de Prometheus (instance {{ $labels.instance }})
+      description: "Prometheus a redémarré plus de 2 fois en 15 minutes. Ceci peut-être dû à des plantages récurents\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusAlertmanagerConfigurationReloadFailure
+    expr: alertmanager_config_last_reload_successful != 1
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Le rechargement de la configuration de Prometheus AlertManager a échoué (instance {{ $labels.instance }})
+      description: "Echec du rechargement de la configuration de Prometheus AlertManager\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusAlertHeartbeat
+    expr: vector(1)
+    for: 0m
+    labels:
+      severity: P4
+    annotations:
+      summary: Autotest OK
+      description: "Ce test assure le bon fonctionnement des alertes\n"
+
+  - alert: PrometheusNotConnectedToAlertmanager
+    expr: prometheus_notifications_alertmanagers_discovered < 1
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Prometheus n'est plus connecté à AlertManager (instance {{ $labels.instance }})
+      description: "Prometheus ne peut plus se connecter à AlertManager\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusRuleEvaluationFailures
+    expr: increase(prometheus_rule_evaluation_failures_total[3m]) > 0
+    for: 3m
+    labels:
+      severity: P2
+    annotations:
+      summary: Prometheus n'a pas compris une règle d'alerte (instance {{ $labels.instance }})
+      description: "Prometheus ne comprend pas {{ $value }} règle(s) d'alerte, pouvant être ignorée(s)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTemplateTextExpansionFailures
+    expr: increase(prometheus_template_text_expansion_failures_total[3m]) > 0
+    for: 3m
+    labels:
+      severity: P2
+    annotations:
+      summary: Echec de lecture du template par Prometheus (instance {{ $labels.instance }})
+      description: "Prometheus a rencontré {{ $value }} échecs de lecture du template\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusRuleEvaluationSlow
+    expr: prometheus_rule_group_last_duration_seconds > prometheus_rule_group_interval_seconds
+    for: 3m
+    labels:
+      severity: P2
+    annotations:
+      summary: La lecture des règles d'alerte par Prometheus est anormalement longue (instance {{ $labels.instance }})
+      description: "La lecture des règles d'alerte par Prometheus a dépassé le temps imparti de 5 minutes. Cela implique des lenteurs liées au stockage ou à des requêtes trop complexes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusNotificationsBacklog
+    expr: min_over_time(prometheus_notifications_queue_length[10m]) > 0
+    for: 3m
+    labels:
+      severity: P2
+    annotations:
+      summary: La file de notifications de Prometheus est chargée (instance {{ $labels.instance }})
+      description: "La file de notifications de Prometheus n'a pas été vidée depuis au moins 10 minutes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusAlertmanagerNotificationFailing
+    expr: rate(alertmanager_notifications_failed_total[1m]) > 0
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Echec de notification de Prometheus AlertManager (instance {{ $labels.instance }})
+      description: "Prometheus Alertmanager a échoué dans l'envoi de notifications\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTargetEmpty
+    expr: prometheus_sd_discovered_targets == 0
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: La source de données de Prometheus est vide (instance {{ $labels.instance }})
+      description: "La source de données du service de découverte de Prometheus est vide\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTargetScrapingSlow
+    expr: prometheus_target_interval_length_seconds{quantile="0.9"} > 120
+    for: 5m
+    labels:
+      severity: P2
+    annotations:
+      summary: Prometheus met trop de temps à collecter les informations (instance {{ $labels.instance }})
+      description: "Prometheus rencontre des lenteurs dans l'interrogation des collecteurs de données, plus de 2 minutes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusLargeScrape
+    expr: increase(prometheus_target_scrapes_exceeded_sample_limit_total[10m]) > 10
+    for: 5m
+    labels:
+      severity: P2
+    annotations:
+      summary: Le temps de collecte d'informations par Prometheus est trop long (instance {{ $labels.instance }})
+      description: "Prometheus a trop de tâches de collecte qui dépassent les 5 minutes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTargetScrapeDuplicate
+    expr: increase(prometheus_target_scrapes_sample_duplicate_timestamp_total[5m]) > 0
+    for: 3m
+    labels:
+      severity: P2
+    annotations:
+      summary: Des tâches de collecte par Prometheus sont identiques (instance {{ $labels.instance }})
+      description: "Prometheus a plusieurs collectes rejetées dues à des horodatages identiques avec des valeurs de données différentes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTsdbCheckpointCreationFailures
+    expr: increase(prometheus_tsdb_checkpoint_creations_failed_total[1m]) > 0
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Echec de création de checkpoint Prometheus TSDB (instance {{ $labels.instance }})
+      description: "Prometheus a rencontré {{ $value }} échec(s) de création de checkpoint\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTsdbCheckpointDeletionFailures
+    expr: increase(prometheus_tsdb_checkpoint_deletions_failed_total[1m]) > 0
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Echec de suppression de checkpoint Prometheus TSDB (instance {{ $labels.instance }})
+      description: "Prometheus a rencontré {{ $value }} échec(s) de suppression de checkpoint\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTsdbCompactionsFailed
+    expr: increase(prometheus_tsdb_compactions_failed_total[1m]) > 0
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Echec de compactage Prometheus TSDB (instance {{ $labels.instance }})
+      description: "Prometheus a rencontré {{ $value }} échec(s) de compactage TSDB\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTsdbHeadTruncationsFailed
+    expr: increase(prometheus_tsdb_head_truncations_failed_total[1m]) > 0
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Echec de troncage des en-têtes Prometheus TSDB (instance {{ $labels.instance }})
+      description: "Prometheus a rencontré {{ $value }} échec(s) de troncage d'en-têtes TSDB\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTsdbReloadFailures
+    expr: increase(prometheus_tsdb_reloads_failures_total[1m]) > 0
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Echec de rechargement Prometheus TSDB (instance {{ $labels.instance }})
+      description: "Prometheus a rencontré {{ $value }} échec(s) de rechargement TSDB\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTsdbWalCorruptions
+    expr: increase(prometheus_tsdb_wal_corruptions_total[1m]) > 0
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Corruption de données WAL Prometheus TSDB (instance {{ $labels.instance }})
+      description: "Prometheus a rencontré {{ $value }} corruption(s) de données WAL TSDB\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: PrometheusTsdbWalTruncationsFailed
+    expr: increase(prometheus_tsdb_wal_truncations_failed_total[1m]) > 0
+    for: 3m
+    labels:
+      severity: P1
+    annotations:
+      summary: Echec de troncage de données WAL Prometheus TSDB (instance {{ $labels.instance }})
+      description: "Prometheus a rencontré {{ $value }} échec(s) de troncage de données WAL TSDB\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+#########################
+# Alertes Node Exporter #
+#########################
+
+- name: NodeExporter_alerts
+  rules:
+  - alert: HostOutOfMemory
+    expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100 == 0
+    for: 20m
+    labels:
+      severity: P2
+    annotations:
+      summary: La quantité de mémoire libre est préoccupante (instance {{ $labels.instance }})
+      description: "Utilisation RAM = 100% depuis au moins 20 minutes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: HostHighCpuLoadCrit
+    expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) == 100
+    for: 20m
+    labels:
+      severity: P2
+    annotations:
+      summary: La charge CPU est très élevée (instance {{ $labels.instance }})
+      description: "Charge CPU = 100% pendant au moins 20 minutes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: HostOutOfDiskSpaceCrit
+    expr: (node_filesystem_avail_bytes * 100) / node_filesystem_size_bytes < 10 and ON (instance, device, mountpoint) node_filesystem_readonly == 0
+    for: 5m
+    labels:
+      severity: P1
+    annotations:
+      summary: L'espace disque restant est faible (instance {{ $labels.instance }})
+      description: "Le stockage est presque plein (< 10% restants depuis au moins 5 minutes)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: HostOutOfDiskSpace
+    expr: (node_filesystem_avail_bytes * 100) / node_filesystem_size_bytes < 20 and ON (instance, device, mountpoint) node_filesystem_readonly == 0
+    for: 5m
+    labels:
+      severity: P2
+    annotations:
+      summary: L'espace disque restant est faible (instance {{ $labels.instance }})
+      description: "Le stockage est presque plein (< 20% restants depuis au moins 5 minutes)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+############################
+# Alertes Windows Exporter #
+############################
+
+- name: WindowsExporter_alerts
+  rules:
+  - alert: WindowsServerCpuUsage
+    expr: 100 - (avg by (instance) (rate(windows_cpu_time_total{mode="idle"}[2m])) * 100) == 100
+    for: 20m
+    labels:
+      severity: P2
+    annotations:
+      summary: Utilisation CPU (instance {{ $labels.instance }})
+      description: "Charge CPU = 100% depuis au moins 20 minutes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: WindowsServerMemoryUsage
+    expr: 100 - ((windows_os_physical_memory_free_bytes / windows_cs_physical_memory_bytes) * 100) == 100
+    for: 20m
+    labels:
+      severity: P2
+    annotations:
+      summary: Utilisation mémoire (instance {{ $labels.instance }})
+      description: "Utilisation RAM = 100% depuis au moins 20 minutes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: WindowsServerDiskSpaceUsageCrit
+    expr: 100.0 - 100 * ((windows_logical_disk_free_bytes / 1024 / 1024 ) / (windows_logical_disk_size_bytes / 1024 / 1024)) > 90
+    for: 5m
+    labels:
+      severity: P1
+    annotations:
+      summary: Utilisation espace disque (instance {{ $labels.instance }})
+      description: "Espace disque occupé > 90% depuis au moins 5 minutes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - alert: WindowsServerDiskSpaceUsage
+    expr: 100.0 - 100 * ((windows_logical_disk_free_bytes{volume!="HarddiskVolume1"} / 1024 / 1024 ) / (windows_logical_disk_size_bytes{volume!="HarddiskVolume1"} / 1024 / 1024)) > 80
+    for: 5m
+    labels:
+      severity: P2
+    annotations:
+      summary: Utilisation espace disque (instance {{ $labels.instance }})
+      description: "Espace disque occupé > 80% depuis au moins 5 minutes\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+#############################
+# Alertes Blackbox Exporter #
+#############################
+
+- name: blackbox_exporter_alerts
+  rules:
+  - alert: EndpointDownFuturmaster8022
+    expr: probe_success{instance=~"http://172.17.100.37:8022"} == 0
+    for: 120m 
+    labels:
+      severity: "P1"
+    annotations:
+      summary: "Endpoint {{ $labels.instance }} (IIS de Prod) down"
+
+  - alert: EndpointDownFuturmaster8024
+    expr: probe_success{instance=~"http://172.17.100.37:8024"} == 0
+    for: 120m
+    labels:
+      severity: "P1"
+    annotations:
+      summary: "Endpoint {{ $labels.instance }} (IIS de Test) down"
+
+###############
+# Alertes SMS #
+###############
+
+- name: alertes_sms
+  rules:
+  - alert: ServiceDownVeeam
+    expr : windows_service_state{instance="172.17.220.234:10101",name="veeamdcs",state="running"} == 0
+    for: 5m
+    labels:
+      severity: "P1"
+    annotations:
+      summary: "Le service VeeamDCS est down sur {{ $labels.instance }}"
+

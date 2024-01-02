@@ -1,0 +1,5 @@
+GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+GF_SERVER_ROOT_URL=http://localhost:3000
+GF_AUTH_ANONYMOUS_ENABLED=true
+GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+

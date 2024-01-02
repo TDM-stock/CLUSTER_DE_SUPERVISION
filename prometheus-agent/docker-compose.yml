@@ -1,0 +1,117 @@
+version: "3.7"
+
+networks:
+  prometheus2:
+    external: true
+
+volumes:
+  prometheus-agent:
+
+configs:
+  prometheus_yml:
+    name: prometheus_config-${SHA_prometheus_yml:-0}
+    file: ./prometheus.yml
+
+services:
+  prometheus-agent:
+    image: docker.devtools.cooperl.net/prom/prometheus:v2.46.0
+    environment:
+      - ENV=${ENV}
+    ports:
+      - 9190:9090
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--enable-feature=agent'
+      - '--storage.agent.path=/prometheus'
+      - '--storage.agent.retention.min-time=${PROMETHEUS_RETENTION_MIN_TIME:-48h}'
+      - '--storage.agent.retention.max-time=${PROMETHEUS_RETENTION_MAX_TIME:-72h}'
+      - '--enable-feature=expand-external-labels'
+      - '--web.enable-admin-api'
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.prometheus-agent-secure.entrypoints=web
+      - traefik.http.routers.prometheus-agent-secure.rule=Host(`prometheus-agent.localtest.me`)
+      - traefik.http.routers.prometheus-agent-secure.service=grafana
+      - traefik.http.services.prometheus-agent.loadbalancer.server.port=9190
+    volumes:
+      - prometheus-agent:/prometheus
+    configs:
+      - source: prometheus_yml
+        target: /etc/prometheus/prometheus.yml
+    networks:
+      - prometheus2
+
+  postgres_exporter:
+    image: wrouesnel/postgres_exporter
+    environment:
+      DATA_SOURCE_NAME: postgres://quentin:secret@postgres:5432/mabdd?sslmode=disable
+    ports:
+      - "9188:9187"
+    volumes:
+      - ./queries.yaml:/etc/postgres_exporter/queries.yaml
+      - /opt/postgres_exporter/postgres_exporter.env:/opt/postgres_exporter/postgres_exporter.env
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.postgres_exporter-secure.entrypoints=web
+      - traefik.http.routers.postgres_exporter-secure.rule=Host(`postgres_exporter.localtest.me`)
+      - traefik.http.routers.postgres_exporter-secure.service=grafana
+      - traefik.http.services.postgres_exporter.loadbalancer.server.port=9187
+
+      - prometheus_job=postgres_exporter
+      - prometheus_port=9187
+    networks:
+      - prometheus2
+
+  traefik:
+    image: "traefik:v3.0"
+    container_name: traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--metrics.prometheus=true"
+      - "--metrics.prometheus.entrypoint=metrics"
+      - "--entrypoints.metrics.address=:8082"
+    ports:
+      - "80:80"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./traefik-config:/etc/traefik"
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+
+      - "traefik.http.routers.traefik-api.service=api@internal"
+      - "traefik.http.routers.traefik-api.entrypoints=web"
+
+      - "traefik.http.routers.traefik-api.rule=Host(`traefik.localtest.me`)"
+
+      - "prometheus_job=traefik"
+      - "prometheus_port=8082"
+    networks:
+      - prometheus2
+
+  node-exporter:
+    image: prom/node-exporter:v1.5.0
+    container_name: node-exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - /:/host:ro,rslave
+    command:
+      - "--web.listen-address=:9100"
+      - "--path.rootfs=/host"
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)"
+    labels:
+       - "prometheus_job=node-exporter"
+       - "prometheus_port=9100"
+    restart: unless-stopped
+    networks:
+      - prometheus2
+

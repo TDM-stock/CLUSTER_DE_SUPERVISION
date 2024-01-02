@@ -1,0 +1,17 @@
+{
+  "targets": [
+    "prometheus:9090",
+    "node-exporter:9100",
+    "prometheus-agent:9290",
+    "alertmanager:9093",
+    "postgres_exporter:9187",
+    "traefik:8082",
+    "postgres:5432"
+
+  ],
+  "labels": {
+    "job": "docker"
+  }
+}
+
+

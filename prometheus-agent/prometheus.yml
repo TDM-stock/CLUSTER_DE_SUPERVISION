@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 30s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 30s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  scrape_timeout: 20s # scrape_timeout is set to the global default (10s).
+  external_labels:
+    origin_prometheus: ${ENV}
+
+remote_write:
+  - url: "http://prometheus-2:9090/api/v1/write"
+
+scrape_configs:
+  
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: 'docker_sd'
+    docker_sd_configs:
+      - host: tcp://10.2.0.1:2375
+    relabel_configs:
+      - source_labels: [__meta_docker_container_label_prometheus_job]
+        regex: .+
+        action: keep
+      - source_labels: [__meta_docker_container_label_prometheus_job]
+        target_label: job
+      - source_labels: [__meta_docker_container_label_prometheus_job, __meta_docker_container_label_prometheus_port]
+        regex: (.+);(.+)
+        action: replace
+        target_label: __address__
+        replacement: $1:$2
+
