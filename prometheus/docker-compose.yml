@@ -4,10 +4,6 @@ volumes:
   prometheus_data: {}
   grafana_data: {}
 
-networks:
-  prometheus2:
-    external: true 
-
 services:
   prometheus:
     image: prom/prometheus:v2.43.0
@@ -78,6 +74,8 @@ services:
     container_name: alertmanager
     volumes:
       - ./alertmanager/:/etc/alertmanager/
+      - ./alertmanager_rules.yml/:/etc/alertmanager/
+      - ./open-alerts-alertmanager.json/:/etc/alertmanager/
     labels:
       - traefik.enable=true
       - traefik.docker.network=proxy
@@ -112,3 +110,12 @@ services:
       - "traefik.http.routers.portainer-secure.rule=Host(`portainer.localtest.me`)"
       - "traefik.http.routers.portainer-secure.service=portainer"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+
+networks:
+  prometheus2:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.2.40.0/24
+    external: true
+
